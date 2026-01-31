@@ -301,3 +301,36 @@ atomically sets the value to newValue if the current value is equal to expectedV
 
 ## Threading models for High Performance IO
 
+From a computer design perspective, the memory and CPU are a logical unit where the CPU has direct access to the memory without OS involvement, and 
+the rest of the components such as disk, network etc... are peripherals that the CPU can access through a controller operation which requires OS 
+involvement. In some cases the peripherals has direct access to the memory through DMA (Direct Memory Access) controllers, which offloads the CPU 
+from copying data from the peripheral to the memory. When a thread performs an I/O operation, it typically involves waiting for the peripheral to 
+complete the operation, which can take a significant amount of time compared to CPU operations. During this waiting period the CPU could be idle 
+resulting in poor resource utilization (IO bound operation).  When a task involve blocking calls, having the same number of threads than cores 
+doesn't necessarily give us the best performance, because some threads will be idle waiting for IO operations to complete and also doesn't give us 
+the best CPU utilization. This is because even if we have a few blocking calls, the performance of the application will be impacted by this 
+blocking calls.
+
+There are multiple techniques in order to improve the performance in an IO bound application
+
+### Thread per task model
+
+In this model, each incoming request is handled by a separate thread. This approach is simple to implement and understand, but it can lead to
+resource exhaustion like memory or reaching the maximum number of threads allowed by the OS, and poor performance under high load as the number of 
+threads increases. This can be implemented with a dynamic thread pool as a new thread is created for each incoming request and the thread is 
+terminated once the request is completed which can be achieved using the `Executors.newCachedThreadPool()` method. We can play safer by caping the 
+number of threads with a fixed thread pool set to a high number, but this would lower the throughput under high load as there would be a 
+significant number of context switches. This can lead to a situation in which the CPU is spending more time context switching between threads than 
+executing the actual threads, leading to thrashing.
+
+### Asynchronous, non blocking IO model with thread per core model
+
+In this model, a small number of threads (typically equal to the number of CPU cores) handle all incoming requests using non-blocking I/O operations.
+When a thread initiates an I/O operation, it doesn't block and wait for the operation to complete. Instead, it registers a callback or uses a
+future/promise mechanism to be notified when the operation is done. This allows the thread to continue processing other requests while waiting for 
+I/O operations to complete. This model can significantly improve resource utilization and throughput, especially under high load, as threads are 
+not idle while waiting for I/O. However, it can be more complex to implement and requires careful management of callbacks and state.
+This model leads to hard API design to which the JDK provides a thin layer of abstraction. Usually you work with third party libraries such as 
+netty, vert.x, webflux, etc... which provide a more user friendly API over the low level NIO API provided by the JDK.
+
+## Virtual Threads and High Performance IO
