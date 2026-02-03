@@ -334,3 +334,36 @@ This model leads to hard API design to which the JDK provides a thin layer of ab
 netty, vert.x, webflux, etc... which provide a more user friendly API over the low level NIO API provided by the JDK.
 
 ## Virtual Threads and High Performance IO
+
+Virtual threads were introduced in the jdk 21, and they are managed by the JVM as opposed to normal threads which are managed by the OS. They also 
+don't come with a fixed stack size. The virtual thread is allocated on the heap as any other object and can be garbage collected when not used 
+anymore. Unlike platform threads, virtual threads are cheap and fast to creat in large quantities. The JVM is responsible for scheduling virtual 
+threads onto a smaller number of platform threads, which allows for efficient use of system resources. When the JVM wants to run a virtual thread, 
+it 'mount' it into a platform thread (named carrier), and when the virtual thread performs a blocking operation, the JVM 'demounts' it from the 
+platform thread, allowing the platform thread to run other virtual threads. To create a platform thread we can use:
+
+```java 
+Thread.startVirtualThread(() -> {
+    // Task to be executed in the virtual thread
+});
+// Or if we don't want the thread to start immediately
+Thread.ofVirtual().unstarted(() -> {
+    // Task to be executed in the virtual thread
+});
+```
+
+In the same way, you can create a platform thread with `Thread.ofPlatform().unstarted(runnable);`. Virtual threads have some considerations 
+regarding performance compared with platform threads:
+
+    * If virtual threads represent only CPU operations then there is no performance gain as it is an abstraction for scheduling tasks on a pool of 
+      threads
+    * If the virtual thread performs blocking IO operations, then there is a significant performance gain as the carrier thread can be used to 
+      run other virtual threads while the original virtual thread is blocked.
+
+Many of the blocking operations were refactored to support virtual threads. Some of this operations include `sleep()`, `ReentrantLock.lock()`, 
+`Semaphore.acquire()`... Executors also comes with new methods to create pools of virtual threads. For example instead of using the `Executors.
+newCachedThreadPool()` we can use `Executors.newVirtualThreadPerTaskExecutor()` which creates a thread pool that creates a new virtual thread per 
+task.
+
+Virtual threads are deamon threads, meaning the threads won't prevent the application from terminating. Also setting the priority of a virtual 
+thread makes no difference. 
