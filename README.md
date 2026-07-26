@@ -1,6 +1,6 @@
 # Java Multithreading and Concurrency Performance Optimization
 
-Each instance of an application that we run runs independently from other processes. Normally they're way more processes than course. Each 
+Each instance of an application that we run runs independently from other processes. Normally they're way more processes than cores. Each 
 process may have one or more threads and all these threads are competing with each other to be executed on the CPU. Even if we have multiple 
 cores, there are still way more threads than cores. So the operating system will have to run one thread, then stop it, run another thread, stop 
 it. And so on the act of stopping one thread, scheduling it out, scheduling in another thread and starting it is called a context switch, which 
